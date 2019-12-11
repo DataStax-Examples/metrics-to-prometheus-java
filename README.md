@@ -1,45 +1,75 @@
-# datastax-example-template
-A short few sentences describing what is the purpose of the example and what the user will learn
+# Sending Java Driver Metrics to Prometheus 
+This application shows how to export metrics from DataStax Java driver 4.x to Prometheus via [Prometheus Java Client](https://github.com/prometheus/client_java).
 
-e.g.
-This application shows how to use configure your NodeJs application to connect to DDAC/Cassandra/DSE or an Apollo database at runtime.
-
-Contributors: A listing of contributors to this repository linked to their github profile
+Contributors: [Alex Ott](https://github.com/alexott)
 
 ## Objectives
-A list of the top objectives that are being demonstrated by this sample
 
-e.g.
-* To demonstrate how to specify at runtime between a standard (DSE/DDAC/C*) client configuration and an Apollo configuration for the same application.
+* To demonstrate how to configure the DataStax Java Driver 4.x to report metrics
+* To demonstrate how to configure the Prometheus client to push those metrics to Prometheus
   
 ## Project Layout
 A list of key files within this repo and a short 1-2 sentence description of why they are important to the project
 
 e.g.
-* app.js - The main application file which contains all the logic to switch between the configurations
+* [MetricsWithPrometheus](/src/main/java/com/datastax/alexott/demos/MetricsWithPrometheus.java) - The main application file which contains all the logic to switch between the configurations
 
 ## How this Works
-A description of how this sample works and how it demonstrates the objectives outlined above
+To configure the Prometheus Java Client you need to add the following dependencies to your pom.xml file.
+
+```
+    <dependency>
+      <groupId>io.prometheus</groupId>
+      <artifactId>simpleclient_dropwizard</artifactId>
+      <version>${prometheus.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.prometheus</groupId>
+      <artifactId>simpleclient_common</artifactId>
+      <version>${prometheus.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.prometheus</groupId>
+      <artifactId>simpleclient_hotspot</artifactId>
+      <version>${prometheus.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.prometheus</groupId>
+      <artifactId>simpleclient_httpserver</artifactId>
+      <version>${prometheus.version}</version>
+    </dependency>
+```
+Once that is added exporting of [Java driver metrics](https://docs.datastax.com/en/developer/java-driver/4.3/manual/core/metrics/) is straightforward.  
+To begin exporting our metrics we just need to add following lines to our `Session` object after we :
+
+```java
+MetricRegistry registry = session.getMetrics()
+        .orElseThrow(() -> new IllegalStateException("Metrics are disabled"))
+        .getRegistry();
+CollectorRegistry.defaultRegistry.register(new DropwizardExports(registry));
+```
+
+This then expose metrics to Prometheus by specific implementation - this example uses
+Prometheus's `HTTPServer`, running on the port 9095 (overridable via `prometheusPort` Java
+property).
 
 ## Setup and Running
 
 ### Prerequisites
-The prerequisites required for this application to run
+The prerequisites required for this application to run are:
 
 e.g.
-* NodeJs version 8
-* A DSE 6.7 Cluster
-* Schema added to the cluster
+* A DSE Cluster
+* A Prometheus server (Install instruction are available [here](https://prometheus.io/docs/prometheus/latest/getting_started/))
 
 ### Running
-The steps and configuration needed to run and build this application
+Run example with following command:
 
-e.g.
-To run this application use the following command:
+```sh
+mvn clean compile exec:java -Dexec.mainClass="com.datastax.alexott.demos.MetricsWithPrometheus" \
+    -DcontactPoint=XX.XX.XX.XX -DdcName=dc1
+```
 
-`node app.js`
-
-This will produce the following output:
-
-`Connected to cluster with 3 host(s) ["XX.XX.XX.136:9042","XX.XX.XX.137:9042","XX.XX.XX.138:9042"]`
+You need to pass contact point & data center name as Java properties (`contactPoint` and
+`dcName` correspondingly)
 
